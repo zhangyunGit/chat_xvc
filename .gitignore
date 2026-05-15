@@ -1,0 +1,12 @@
+node_modules/
+.wrangler/
+.dev.vars
+.env
+.env.*
+!.env.example
+dist/
+coverage/
+cloudflare.resources.json
+config.json
+wrangler.generated.jsonc
+

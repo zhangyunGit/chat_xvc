@@ -1,0 +1,16 @@
+{
+  "cloudflare": {
+    "account_name": "your-cloudflare-account-name",
+    "account_id": "your-cloudflare-account-id",
+    "domain_name": "workers.dev"
+  },
+  "serper": {
+    "apikey": "your-serper-api-key"
+  },
+  "deepseek": {
+    "apikey": "optional-local-deepseek-api-key-or-use-DEEPSEEK_API_KEY-env"
+  },
+  "gemini": {
+    "apikey": "optional-local-gemini-api-key-or-use-GEMINI_API_KEY-env"
+  }
+}
