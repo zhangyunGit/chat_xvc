@@ -6,6 +6,7 @@
 
 Chat XVC 是一个部署在 Cloudflare Workers 上的智能对话式任务管理助手。整体采用 Cloudflare-native 架构：
 
+![](image-1.png)
 ```text
 浏览器前端
   ↓
@@ -65,10 +66,12 @@ Step Analyzer
 ResearchSynthesizer
   ↓ 汇总为结构化研究报告
 ```
-
+![alt text](src/asset/research1.png)
+![alt text](src/asset/research2.png)
+![alt text](src/asset/research3.png)
+![alt text](src/asset/research4.png)
 具体实现：
-
-1. `ResearchPlanner` 使用更强的 Gemini Flash 模型，将用户问题拆成最多 5 个子任务，每个子任务包含 `title`、`query`、`rationale`。
+1. `ResearchPlanner` 规划拆分子任务(更强的flash模型)->子任务执行(较小的lite模型)->总结子任务结果(更强的flash模型)。默认将问题拆成最多 5 个子任务，每个子任务包含 `title`、`query`、`rationale`。
 2. 每个子任务调用 `SearchTools.webSearch`，通过 `SearchProvider` 抽象访问 Serper.dev。
 3. `Step Analyzer` 对每个子任务的搜索结果生成 3-5 条要点，区分事实、推断和信息缺口。
 4. `ResearchSynthesizer` 去重全局来源，最多取 20 条来源，生成最终 Markdown 报告。
@@ -123,6 +126,8 @@ ResearchSynthesizer
   → 文件元数据写入 D1 files
   → ctx.waitUntil 后台解析索引
 ```
+![alt text](src/asset/rag1.png)
+![alt text](src/asset/rag2.png)
 
 支持格式：
 
@@ -172,6 +177,33 @@ RAG 检索：
 - 删除 Vectorize 中对应向量。
 - D1 `files.status` 标记为 `deleted`。
 
+embedding测试结果
+Embedding: cloudflare-workers-ai:@cf/baai/bge-m3
+Dataset: C-MTEB/EcomRetrieval
+Sampling: targeted qrels positives + random negatives
+Candidates: 3000
+Evaluated queries: 100
+
+  结果：
+
+  MRR@10:   0.8091
+  nDCG@10:  0.8407
+
+  Hit@1:    0.7500
+  Recall@1: 0.7500
+
+  Hit@3:    0.8500
+  Recall@3: 0.8500
+
+  Hit@5:    0.9100
+  Recall@5: 0.9100
+
+  Hit@10:   0.9400
+  Recall@10:0.9400
+
+  结论：在这个 100 条中文检索小样本、3000 候选池里，当前记忆向量方案有效性不错：75% 的问题能把正确记忆排到第 1，91% 能进前 5，94% 能进前 10。
+
+
 ## 5. 多模态支持
 
 当前已实现图片、视频关键帧和音频输入。
@@ -191,6 +223,9 @@ RAG 检索：
 - 模型基于多张关键帧进行内容理解和 OCR。
 - 回复会说明当前判断基于关键帧，而非完整视频播放。
 
+![alt text](src/asset/modal1.png)
+![alt text](src/asset/modal2.png)
+
 音频转写：
 
 - 支持 MP3、WAV、M4A、AAC、FLAC、OGG、Opus、WebM audio。
@@ -199,73 +234,15 @@ RAG 检索：
 
 ## 6. 遇到的挑战及解决方案
 
-### 6.1 多轮上下文与意图路由
+多轮上下文与意图路由
 
-问题：只看当前消息时，用户说“这个任务”“它”“这篇文档”容易丢失上下文。
+### 6.1. LLM AI workers和 AI Gateway的选择
+为了更好的利用边缘部署的就近调用优势，原计划使用AI Workers作为意图识别和回复生成的LLM，不过实际测试中，除了默认的llama-8BWorker，其他选择AI Workers提供的大多数开源模型（如qwen，glm）在效果和性能上都没有优势，最终改用AI gateway调用gemini3.1-lite模型
 
-解决：
+### 6.2. 功能分区的设计
+本产品涉及到任务管理、文件管理、深度研究。如果是纯PC端，理论上应该利用电脑较大的屏幕做更好的功能分区设计。不过考虑到移动端的兼容性，目前所有功能，全部集成在对话工具界面中。
 
-- 每次请求从 D1 读取最近 20 条消息。
-- 传给 LLM 的历史消息只保留标准 `role` 和 `content`。
-- 任务、研究、文档等 workflow 在服务端增加指代解析和 fileId 优先逻辑。
-
-### 6.2 普通聊天的重复 LLM 调用
-
-问题：意图识别调用一次 LLM，普通聊天最终回复又调用一次 LLM。
-
-权衡后处理：
-
-- 最终保留“意图识别 + 最终回复”两段式，因为最终回复需要多轮上下文、记忆召回和流式输出。
-- 移除把最终回复塞进 intent JSON 的短路方案，避免破坏流式体验。
-
-### 6.3 流式输出
-
-问题：早期后端是等 LLM 完整返回后，再手动切 chunk 给前端，看起来是流式但不是真正模型流式。
-
-解决：
-
-- `LLMProvider` 增加 `chatStream`。
-- `ChatAgent.respond` 在 provider 支持时直接转发模型 delta。
-- `/api/chat` SSE 将 delta 实时推给前端。
-- 前端复用已有 delta append 逻辑实时展示。
-
-### 6.4 PDF 上传后立即问答
-
-问题：TXT 索引很快，PDF 解析较慢。上传后立刻问“这篇 PDF 讲了什么”时，可能还未 indexed，或者被误判成文件列表意图。
-
-解决：
-
-- 规则路由识别带 `[fileId:...]` 的 PDF 内容问题。
-- `document.qa` 和 `document.summarize` 对本轮上传文件短暂等待 indexed。
-- 如果仍未完成，明确提示文件当前状态。
-
-### 6.5 Cloudflare Workers 无状态环境
-
-问题：不能依赖单个 Worker 实例内存保存会话上下文，请求可能落到不同 isolate。
-
-解决：
-
-- D1 作为对话和消息的权威存储。
-- 每次请求按 conversationId 从 D1 获取最近消息。
-- 长期上下文通过 D1 + Vectorize 的记忆系统补充。
-
-### 6.6 文件删除与后台索引并发
-
-问题：用户删除文件时，后台 `waitUntil` 索引任务可能还在执行，存在已删除文件重新写入向量或 chunk 的风险。
-
-解决：
-
-- 文件删除先标记 `deleted`。
-- 索引写入前后检查文件状态。
-- 如果索引期间文件被删除，回滚新写入向量并中止。
-
-### 6.7 Provider 差异
-
-问题：Gemini 原生 API、OpenAI-compatible API、Workers AI 的请求格式不同。
-
-解决：
-
-- 文本对话统一走 `LLMProvider`。
-- 默认通过 Cloudflare AI Gateway OpenAI-compatible `/chat/completions` 访问 Gemini。
-- 音频转写使用 Gemini 原生 `generateContent`，因为当前音频以内联媒体输入处理更直接。
-- 业务层不直接绑定具体模型厂商格式。
+### 6.3 性能和效果的权衡
+细粒度意图识别，使用了规则+LLM，对于任务管理、文件管理的高频话术，建立规则匹配，如果规则未匹配，则使用LLM，这样能够减少LLM调用，减少成本和提升响应速度。
+实际测试中，对于任务的删除、修改操作，由于需要指定参数，在自然语言操作的背景下，这类参数通常是指代的，如删除第2个任务，或者非精准匹配的任务名称。此时规则通常导致错误的结果
+解决方案：规则只针对创建及列表查询生效，修改删除操作直接使用LLM意图识别（LLM的多轮理解能力更强）
