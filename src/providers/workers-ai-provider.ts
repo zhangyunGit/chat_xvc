@@ -10,8 +10,8 @@ type WorkersAiEmbeddingResult = {
 export class WorkersAiProvider implements LLMProvider, EmbeddingProvider {
   constructor(private readonly env: Env) {}
 
-  async chat(messages: ChatMessage[]): Promise<string> {
-    const result = (await this.env.AI.run(this.env.DEFAULT_CHAT_MODEL, {
+  async chat(messages: ChatMessage[], options: { model?: string } = {}): Promise<string> {
+    const result = (await this.env.AI.run(options.model ?? this.env.DEFAULT_CHAT_MODEL, {
       messages
     })) as unknown;
 

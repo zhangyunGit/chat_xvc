@@ -9,4 +9,4 @@ coverage/
 cloudflare.resources.json
 config.json
 wrangler.generated.jsonc
-
+deepseek_input.png

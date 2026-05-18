@@ -135,12 +135,14 @@ research.latest_info
 ### 1.6 普通对话与控制类
 
 ```text
-conversation.smalltalk
+conversation.chitchat
 conversation.clarify
 conversation.general_qa
 conversation.help
 conversation.capability_intro
 ```
+
+`conversation.chitchat` 用于处理除任务管理、文件管理、记忆管理、深度研究以外的其他日常或反思型对话，例如兴趣爱好、情感、工作、理想、问候和普通闲聊。
 
 示例：
 
@@ -488,4 +490,3 @@ persist messages
 ```
 
 最终目标是让简单高置信请求走规则，复杂表达走 LLM 结构化分类，低置信请求追问澄清，并根据 intent 选择合适工具和 Prompt。
-

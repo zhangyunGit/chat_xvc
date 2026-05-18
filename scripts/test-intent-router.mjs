@@ -45,6 +45,10 @@ const ruleCases = [
   [{ ...baseInput, message: "我的邮箱是什么？" }, "profile.query"],
   [{ ...baseInput, message: "查看我的任务" }, "task.list"],
   [{ ...baseInput, message: "帮我创建任务：检查简历 明天下午3点" }, "task.create"],
+  [{ ...baseInput, message: "请记住：我喜欢简洁的回答" }, "memory.write"],
+  [{ ...baseInput, message: "你现在都记住了什么？" }, "memory.list"],
+  [{ ...baseInput, message: "我们刚才提到的项目叫什么？" }, "memory.recall"],
+  [{ ...baseInput, message: "忘记关于简洁回答的偏好" }, "memory.delete"],
   [{ ...baseInput, message: "查一下 Cloudflare Vectorize 最新用法" }, "research.latest_info"],
   [{ ...baseInput, message: "帮我调研 Workers AI 和 OpenAI API 的区别" }, "research.deep_report"]
 ];
@@ -53,6 +57,21 @@ for (const [input, expected] of ruleCases) {
   const actual = ruleRouter.route(input)?.intent;
   if (actual !== expected) {
     throw new Error(\`Expected rule intent \${expected}, got \${actual}\`);
+  }
+}
+
+const nonRuleWriteCases = [
+  "把第2个任务删除掉吧",
+  "把第一个任务改成明天晚上完成",
+  "完成第二个任务",
+  "删除第二条要求",
+  "把 FILE_FEATURE_PROGRESS.md 这个文件删除掉"
+];
+
+for (const message of nonRuleWriteCases) {
+  const actual = ruleRouter.route({ ...baseInput, message })?.intent;
+  if (actual) {
+    throw new Error(\`Expected write intent to go through LLM, got rule intent \${actual} for \${message}\`);
   }
 }
 

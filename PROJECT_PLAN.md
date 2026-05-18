@@ -10,6 +10,7 @@
 - 文件上传与 RAG
 - 外部实时搜索
 - 子代理式研究规划
+- 图片理解、OCR、视频关键帧理解与音频转写
 - 流式回答
 - Cloudflare 边缘部署
 
@@ -51,9 +52,19 @@
 ### 2.5 数据持久化
 
 - Cloudflare D1：用户、任务、对话记录、文件元数据、chunk 元数据。
+- 长期记忆：D1 保存显式记忆、即时对话片段和阶段摘要记录，Vectorize 保存对应语义向量。
 - Cloudflare R2：上传的原始文件。
 - Cloudflare KV：轻量缓存、会话状态、搜索结果缓存。
 - Cloudflare Vectorize：文档 chunk 向量和长期记忆向量。
+
+### 2.6 多模态输入
+
+- 支持用户在聊天输入框中粘贴或拖入图片，并同时输入文字要求。
+- 当请求包含图片时，自动进入图片理解/OCR 工作流，不依赖用户显式选择意图。
+- 图片以本次请求的临时 data URL 传入多模态模型，不作为普通文件写入 R2/D1；对话记录和 LLM 日志只保存图片元数据与脱敏占位。
+- 支持用户拖入视频后在浏览器本地抽取关键帧，再把关键帧和时间戳作为多图输入交给模型；第一阶段不上传完整视频、不处理音频。
+- 支持用户上传音频后自动转写成文字；第一阶段使用短音频 inline 请求，不把原始音频写入 R2/D1。
+- 图片理解/OCR 默认通过 AI Gateway 调用 Google AI Studio `gemini-3.1-flash-lite`，音频转写通过 Gemini `generateContent` inline audio 能力调用同一模型，继续复用现有 `GEMINI_API_KEY`。
 
 ## 3. 最终技术选型
 
@@ -152,8 +163,9 @@ Qdrant Cloud 是 Qdrant 提供的独立向量数据库云服务，不属于 Clou
 
 但模型能力可能不如 Gemini、OpenAI、Anthropic 等闭源模型，因此需要实现 `LLMProvider` 抽象层：
 
-- 默认实现：AI Gateway + DeepSeek `deepseek/deepseek-v4-flash`。
-- 备用实现：AI Gateway + Google AI Studio `google-ai-studio/gemini-3-flash-preview`。
+- 默认实现：AI Gateway + Google AI Studio `google-ai-studio/gemini-3.1-flash-lite`，用于意图识别、普通聊天和多模态理解。
+- 深度思考/深度研究实现：AI Gateway + Google AI Studio `google-ai-studio/gemini-3-flash-preview`。
+- 备用实现：AI Gateway + DeepSeek `deepseek/deepseek-v4-flash`。
 - 保留 Workers AI 作为可切换聊天运行时和默认 embedding provider。
 - 支持未来切换模型，不把业务逻辑绑定到单一提供商。
 
@@ -191,7 +203,7 @@ Serper.dev 需要封装成 `SearchProvider`，未来可替换为其他搜索 API
 - `research.quick_search`
 - `research.deep_report`
 - `memory.recall`
-- `conversation.smalltalk`
+- `conversation.chitchat`
 - `conversation.clarify`
 
 Intent Router 输出结构应包含：
@@ -233,6 +245,8 @@ Intent Router 输出结构应包含：
 
 所有会改变状态的操作必须写入 D1、R2、KV 或 Vectorize。
 
+AI 调用链路日志写入 D1 `llm_call_logs`，用单次请求的 `request_id` 串联规则/LLM 意图识别、回复生成、研究规划/子任务/汇总和记忆阶段摘要等阶段；可通过 `LLM_LOGGING_ENABLED` 开关关闭。
+
 ## 8. 推荐系统架构
 
 ```text
@@ -254,7 +268,8 @@ Cloudflare D1
   ├─ conversations
   ├─ messages
   ├─ files
-  └─ document_chunks
+  ├─ document_chunks
+  └─ memories
 
 Cloudflare R2
   └─ uploaded files
@@ -265,7 +280,9 @@ Cloudflare KV
 
 Cloudflare Vectorize
   ├─ document chunks
-  └─ conversation memories
+  ├─ explicit memories
+  ├─ conversation snippets
+  └─ conversation stage summaries
 
 Serper.dev
   └─ public web search

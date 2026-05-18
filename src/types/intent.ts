@@ -34,7 +34,7 @@ export type IntentName =
   | "research.compare_options"
   | "research.fact_check"
   | "research.latest_info"
-  | "conversation.smalltalk"
+  | "conversation.chitchat"
   | "conversation.clarify"
   | "conversation.general_qa"
   | "conversation.help"

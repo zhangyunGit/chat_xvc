@@ -89,7 +89,7 @@ export class ConversationRepository {
     return toMessage(row);
   }
 
-  async listRecentMessages(conversationId: string, limit = 10): Promise<ConversationMessage[]> {
+  async listRecentMessages(conversationId: string, limit = 20): Promise<ConversationMessage[]> {
     const rows = await this.db
       .prepare(
         "SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?"
@@ -98,6 +98,15 @@ export class ConversationRepository {
       .all<MessageRow>();
 
     return rows.results.map(toMessage).reverse();
+  }
+
+  async countAssistantMessages(conversationId: string): Promise<number> {
+    const row = await this.db
+      .prepare("SELECT COUNT(*) AS count FROM messages WHERE conversation_id = ? AND role = 'assistant'")
+      .bind(conversationId)
+      .first<{ count: number }>();
+
+    return Number(row?.count ?? 0);
   }
 }
 

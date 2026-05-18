@@ -45,8 +45,7 @@ export function createProfileIntakeMessages(input: {
           },
           recentMessages: input.recentMessages.map((message) => ({
             role: message.role,
-            content: message.content,
-            intent: message.intent
+            content: message.content
           })),
           message: input.message
         },

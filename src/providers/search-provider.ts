@@ -1,6 +1,5 @@
-import type { SearchResponse } from "../types/search";
+import type { SearchOptions, SearchResponse } from "../types/search";
 
 export interface SearchProvider {
-  search(query: string): Promise<SearchResponse>;
+  search(query: string, options?: SearchOptions): Promise<SearchResponse>;
 }
-

@@ -1,5 +1,6 @@
 import { TaskRepository } from "../repositories/task-repository";
 import { parseTaskCommand, toTaskStatusLabel, type TaskCommand } from "../tools/task-command-parser";
+import type { ChatUiTask } from "../types/chat";
 import type { Task, TaskPriority, TaskRequirement, TaskStatus, TaskWithRequirements, UpdateTaskInput } from "../types/domain";
 import type { IntentDecision, IntentName, RecentIntentMessage } from "../types/intent";
 
@@ -21,6 +22,7 @@ export type TaskExecutionResult = {
   mode?: "direct" | "llm";
   reply?: string;
   toolResultText?: string;
+  uiTasks?: ChatUiTask[];
 };
 
 type TaskExecutionInput = {
@@ -97,13 +99,14 @@ export class TaskService {
       priority
     });
 
-    return createLlmResult({
+    return {
+      handled: true,
       intent: input.decision.intent,
       functionName: "create_task",
-      toolResultText: createToolResultText("create_task", "success", {
-        task: serializeTask(task)
-      })
-    });
+      mode: "direct",
+      reply: "已为您创建新任务，信息如下：",
+      uiTasks: [serializeTaskForUi(task)]
+    };
   }
 
   private async listTasks(userId: string): Promise<TaskExecutionResult> {
@@ -115,13 +118,13 @@ export class TaskService {
         intent: "task.list",
         functionName: "list_tasks",
         mode: "direct",
-        reply: "你当前还没有任务。你可以直接说“帮我创建任务：检查简历 明天下午3点”。"
+        reply: "你当前还没有任务。你可以直接说“帮我创建任务：检查简历 明天下午3点”。",
+        uiTasks: []
       };
     }
 
     const openTasks = tasks.filter((task) => task.status !== "done" && task.status !== "cancelled");
     const completedTasks = tasks.filter((task) => task.status === "done");
-    const lines = tasks.map((task, index) => formatTaskLine(task, index + 1));
     const summary = `你当前共有 ${tasks.length} 个任务，其中 ${openTasks.length} 个未完成，${completedTasks.length} 个已完成。`;
 
     return {
@@ -129,7 +132,8 @@ export class TaskService {
       intent: "task.list",
       functionName: "list_tasks",
       mode: "direct",
-      reply: `${summary}\n${lines.join("\n")}`
+      reply: `${summary}信息如下：`,
+      uiTasks: tasks.map(serializeTaskForUi)
     };
   }
 
@@ -150,6 +154,7 @@ export class TaskService {
     return createLlmResult({
       intent: input.decision.intent,
       functionName: "get_task_detail",
+      uiTasks: [serializeTaskForUi(resolution.task)],
       toolResultText: createToolResultText("get_task_detail", "success", {
         task: serializeTaskWithRequirements(resolution.task)
       })
@@ -158,7 +163,8 @@ export class TaskService {
 
   private async updateTask(input: TaskExecutionInput, command: TaskCommand): Promise<TaskExecutionResult> {
     const target = getTaskTarget(input, command);
-    const resolution = await this.resolveTask(input.userId, target);
+    const targetIndex = getTaskTargetIndex(input, command);
+    const resolution = await this.resolveTask(input.userId, target, targetIndex);
 
     if (!resolution.task) {
       return createLlmResult({
@@ -182,6 +188,7 @@ export class TaskService {
     return createLlmResult({
       intent: input.decision.intent,
       functionName: "update_task",
+      uiTasks: [serializeTaskForUi({ ...resolution.task, ...updated, requirements: resolution.task.requirements })],
       toolResultText: createToolResultText("update_task", "success", {
         before: serializeTask(resolution.task),
         after: serializeTask(updated)
@@ -191,7 +198,8 @@ export class TaskService {
 
   private async deleteTask(input: TaskExecutionInput, command: TaskCommand): Promise<TaskExecutionResult> {
     const target = getTaskTarget(input, command);
-    const resolution = await this.resolveTask(input.userId, target);
+    const targetIndex = getTaskTargetIndex(input, command);
+    const resolution = await this.resolveTask(input.userId, target, targetIndex);
 
     if (!resolution.task) {
       return createLlmResult({
@@ -206,6 +214,7 @@ export class TaskService {
     return createLlmResult({
       intent: input.decision.intent,
       functionName: "delete_task",
+      uiTasks: [serializeTaskForUi(resolution.task)],
       toolResultText: createToolResultText("delete_task", "success", {
         deletedTask: serializeTask(resolution.task)
       })
@@ -216,7 +225,8 @@ export class TaskService {
     const target = getTaskTarget(input, command);
     const content = getEntityString(input.decision.entities, ["requirement", "requirementContent", "content"]) ??
       (command.type === "add_requirement" ? command.content : "");
-    const resolution = await this.resolveTask(input.userId, target);
+    const targetIndex = getTaskTargetIndex(input, command);
+    const resolution = await this.resolveTask(input.userId, target, targetIndex);
 
     if (!resolution.task) {
       return createLlmResult({
@@ -239,6 +249,12 @@ export class TaskService {
     return createLlmResult({
       intent: input.decision.intent,
       functionName: "add_task_requirement",
+      uiTasks: [
+        serializeTaskForUi({
+          ...resolution.task,
+          requirements: [...resolution.task.requirements, requirement]
+        })
+      ],
       toolResultText: createToolResultText("add_task_requirement", "success", {
         task: serializeTask(resolution.task),
         requirement: serializeRequirement(requirement)
@@ -250,7 +266,8 @@ export class TaskService {
     const target = getTaskTarget(input, command);
     const content = getEntityString(input.decision.entities, ["requirement", "requirementContent", "content"]) ??
       (command.type === "update_requirement" ? command.content : "");
-    const resolution = await this.resolveTask(input.userId, target);
+    const targetIndex = getTaskTargetIndex(input, command);
+    const resolution = await this.resolveTask(input.userId, target, targetIndex);
 
     if (!resolution.task) {
       return createLlmResult({
@@ -282,6 +299,12 @@ export class TaskService {
     return createLlmResult({
       intent: input.decision.intent,
       functionName: "update_task_requirement",
+      uiTasks: [
+        serializeTaskForUi({
+          ...resolution.task,
+          requirements: resolution.task.requirements.map((item) => item.id === updated.id ? updated : item)
+        })
+      ],
       toolResultText: createToolResultText("update_task_requirement", "success", {
         task: serializeTask(resolution.task),
         beforeRequirement: serializeRequirement(requirement),
@@ -292,7 +315,8 @@ export class TaskService {
 
   private async deleteRequirement(input: TaskExecutionInput, command: TaskCommand): Promise<TaskExecutionResult> {
     const target = getTaskTarget(input, command);
-    const resolution = await this.resolveTask(input.userId, target);
+    const targetIndex = getTaskTargetIndex(input, command);
+    const resolution = await this.resolveTask(input.userId, target, targetIndex);
 
     if (!resolution.task) {
       return createLlmResult({
@@ -316,6 +340,12 @@ export class TaskService {
     return createLlmResult({
       intent: input.decision.intent,
       functionName: "delete_task_requirement",
+      uiTasks: [
+        serializeTaskForUi({
+          ...resolution.task,
+          requirements: resolution.task.requirements.filter((item) => item.id !== requirement.id)
+        })
+      ],
       toolResultText: createToolResultText("delete_task_requirement", "success", {
         task: serializeTask(resolution.task),
         deletedRequirement: serializeRequirement(requirement)
@@ -353,6 +383,7 @@ export class TaskService {
       intent: input.decision.intent,
       functionName: "extract_tasks_from_text",
       mode: "direct",
+      uiTasks: createdTasks.map(serializeTaskForUi),
       reply: [
         `已从文本中创建 ${createdTasks.length} 个任务：`,
         ...createdTasks.map((task, index) => `${index + 1}. ${formatTaskInline(task)}`)
@@ -447,6 +478,15 @@ function getTaskTarget(input: TaskExecutionInput, command: TaskCommand): string 
   return inferRecentTaskTarget(input.recentMessages);
 }
 
+function getTaskTargetIndex(input: TaskExecutionInput, command: TaskCommand): number | undefined {
+  const entityIndex = getEntityNumber(input.decision.entities, ["targetIndex", "index", "taskIndex", "taskNumber"]);
+  if (entityIndex !== undefined) return entityIndex;
+
+  if (command.type === "detail") return command.targetIndex;
+
+  return extractOrdinal(input.message);
+}
+
 function normalizeTaskTarget(target: string): string {
   const cleaned = target.trim();
   if (/^(这个|该|当前|刚才|上面|它|其)$/u.test(cleaned)) return "";
@@ -480,6 +520,35 @@ function inferRecentTaskTarget(messages: RecentIntentMessage[]): string {
   if (listLines.length === 1) return listLines[0];
 
   return "";
+}
+
+function extractOrdinal(message: string): number | undefined {
+  const digit = message.match(/第\s*(\d+)\s*(?:个|条|项)?/u)?.[1] ??
+    message.match(/(\d+)\s*(?:号|个|条|项)/u)?.[1];
+  if (digit) {
+    const value = Number(digit);
+    return Number.isInteger(value) && value > 0 ? value : undefined;
+  }
+
+  const chinese = message.match(/第?\s*([一二三四五六七八九十])\s*(?:个|条|项)?/u)?.[1];
+  return chinese ? chineseOrdinalToNumber(chinese) : undefined;
+}
+
+function chineseOrdinalToNumber(value: string): number | undefined {
+  const digits: Record<string, number> = {
+    一: 1,
+    二: 2,
+    三: 3,
+    四: 4,
+    五: 5,
+    六: 6,
+    七: 7,
+    八: 8,
+    九: 9,
+    十: 10
+  };
+
+  return digits[value];
 }
 
 function resolveRequirement(
@@ -516,13 +585,15 @@ function createLlmResult(input: {
   intent: IntentName;
   functionName: TaskFunctionName;
   toolResultText: string;
+  uiTasks?: ChatUiTask[];
 }): TaskExecutionResult {
   return {
     handled: true,
     intent: input.intent,
     functionName: input.functionName,
     mode: "llm",
-    toolResultText: input.toolResultText
+    toolResultText: input.toolResultText,
+    uiTasks: input.uiTasks
   };
 }
 
@@ -590,6 +661,25 @@ function serializeTaskWithRequirements(task: TaskWithRequirements) {
   return {
     ...serializeTask(task),
     requirements: task.requirements.map(serializeRequirement)
+  };
+}
+
+function serializeTaskForUi(task: Task | TaskWithRequirements): ChatUiTask {
+  return {
+    id: task.id,
+    title: task.title,
+    detail: task.detail,
+    status: task.status,
+    statusLabel: toTaskStatusLabel(task.status),
+    priority: task.priority,
+    priorityLabel: formatPriority(task.priority),
+    dueAt: task.dueAt,
+    requirements: "requirements" in task
+      ? task.requirements.map((requirement) => ({
+          id: requirement.id,
+          content: requirement.content
+        }))
+      : []
   };
 }
 

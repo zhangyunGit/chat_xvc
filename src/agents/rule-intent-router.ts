@@ -49,8 +49,86 @@ export class RuleIntentRouter {
       });
     }
 
+    if (isDocumentUploadHelpIntent(message)) {
+      return createIntentDecision({
+        intent: "document.upload_help",
+        confidence: 0.91,
+        source: "rule"
+      });
+    }
+
+    if (isDocumentListIntent(message)) {
+      return createIntentDecision({
+        intent: "document.list",
+        confidence: 0.93,
+        source: "rule"
+      });
+    }
+
+    if (isDocumentSummarizeIntent(message)) {
+      return createIntentDecision({
+        intent: "document.summarize",
+        confidence: 0.86,
+        entities: { query: message },
+        source: "rule"
+      });
+    }
+
+    if (isDocumentSearchIntent(message)) {
+      return createIntentDecision({
+        intent: "document.search",
+        confidence: 0.88,
+        entities: { query: message },
+        source: "rule"
+      });
+    }
+
+    if (isDocumentQaIntent(message)) {
+      return createIntentDecision({
+        intent: "document.qa",
+        confidence: 0.84,
+        entities: { query: message },
+        source: "rule"
+      });
+    }
+
+    if (isMemoryListIntent(message)) {
+      return createIntentDecision({
+        intent: "memory.list",
+        confidence: 0.94,
+        source: "rule"
+      });
+    }
+
+    if (isMemoryDeleteIntent(message)) {
+      return createIntentDecision({
+        intent: "memory.delete",
+        confidence: 0.92,
+        entities: { target: message },
+        source: "rule"
+      });
+    }
+
+    if (isMemoryRecallIntent(message)) {
+      return createIntentDecision({
+        intent: "memory.recall",
+        confidence: 0.9,
+        entities: { query: message },
+        source: "rule"
+      });
+    }
+
+    if (isMemoryWriteIntent(message)) {
+      return createIntentDecision({
+        intent: "memory.write",
+        confidence: 0.92,
+        entities: { content: message },
+        source: "rule"
+      });
+    }
+
     const taskCommand = parseTaskCommand(message);
-    if (taskCommand.type !== "unknown") {
+    if (shouldUseRuleTaskCommand(taskCommand.type)) {
       return createIntentDecision({
         intent: toTaskIntent(taskCommand.type),
         confidence: taskCommand.type === "create" ? 0.84 : 0.93,
@@ -61,7 +139,7 @@ export class RuleIntentRouter {
 
     if (/^(你好|您好|hi|hello|hey)$/iu.test(message)) {
       return createIntentDecision({
-        intent: "conversation.smalltalk",
+        intent: "conversation.chitchat",
         confidence: 0.9,
         source: "rule"
       });
@@ -86,6 +164,53 @@ export class RuleIntentRouter {
 
     return null;
   }
+}
+
+function isDocumentListIntent(message: string): boolean {
+  if (/\[fileId:[^\]\s]+\]/u.test(message)) return false;
+  if (/(总结|摘要|概括|归纳)/u.test(message)) return false;
+
+  return /(我|当前|已经)?(上传|添加|保存).*(文件|文档|资料)|文件列表|文档列表|资料列表|我有哪些(文件|文档|资料)/u.test(message);
+}
+
+function isDocumentUploadHelpIntent(message: string): boolean {
+  return /怎么上传(文件|文档|资料)|如何上传(文件|文档|资料)|上传(文件|文档|资料).*(怎么|如何)/u.test(message);
+}
+
+function isDocumentSearchIntent(message: string): boolean {
+  return /(搜索|查找|检索|找一下).*(文件|文档|资料)|从(文件|文档|资料).*(搜索|查找|检索)|在(文件|文档|资料)(里|中).*(搜索|查找|检索)/u.test(message);
+}
+
+function isDocumentSummarizeIntent(message: string): boolean {
+  if (/\[fileId:[^\]\s]+\]/u.test(message) && /(讲了什么|说了什么|主要内容|内容是什么|什么内容|大意|概述|总结|摘要|概括|归纳)/u.test(message)) {
+    return true;
+  }
+
+  return /(总结|摘要|概括|归纳).*(文件|文档|资料|材料|附件|PDF|pdf|该文档|这个文档|这份文档|这篇)|把.*(文件|文档|资料|材料|附件|PDF|pdf|该文档|这个文档|这份文档|这篇).*(总结|摘要|概括|归纳)|请(总结|摘要|概括|归纳)/u.test(message);
+}
+
+function isDocumentQaIntent(message: string): boolean {
+  if (/\[fileId:[^\]\s]+\]/u.test(message) && /(回答|说明|解释|是什么|有哪些|多少|怎么|如何|提到|说了|内容|观点|结论|原因|建议)/u.test(message)) {
+    return true;
+  }
+
+  return /(根据|基于|结合).*(文件|文档|资料|材料|附件|PDF|pdf|这篇|该文档|这个文档).*(回答|说明|解释|是什么|有哪些|多少|怎么|如何)|((文件|文档|资料|材料|附件|PDF|pdf|这篇|该文档|这个文档)(里|中)?.*(是什么|有哪些|多少|怎么|如何|提到|说了|内容))/u.test(message);
+}
+
+function isMemoryWriteIntent(message: string): boolean {
+  return /^(请)?(帮我)?(记住|记一下)|^以后(你)?(要)?记得|我的偏好是/u.test(message);
+}
+
+function isMemoryListIntent(message: string): boolean {
+  return /你(现在)?(都)?记住了什么|你(有)?哪些记忆|列出(我的)?记忆|长期记忆列表|记忆列表/u.test(message);
+}
+
+function isMemoryRecallIntent(message: string): boolean {
+  return /你还记得.*吗|你记得.*吗|回忆一下|查询.*记忆|关于.*你记得什么|(?:刚才|之前|上次|前面).*(提到|说|讨论|聊|项目|目标|内容)/u.test(message);
+}
+
+function isMemoryDeleteIntent(message: string): boolean {
+  return /^(请)?(删除|移除|忘记|忘掉)|不要再记得/u.test(message) && /记忆|记住|关于|偏好|喜欢|项目|我/u.test(message);
 }
 
 function isProfileQuery(message: string): boolean {
@@ -114,6 +239,14 @@ function toTaskIntent(type: ReturnType<typeof parseTaskCommand>["type"]) {
   } as const;
 
   return mapping[type as keyof typeof mapping] ?? "conversation.clarify";
+}
+
+function shouldUseRuleTaskCommand(type: ReturnType<typeof parseTaskCommand>["type"]): boolean {
+  return type === "create" ||
+    type === "list" ||
+    type === "detail" ||
+    type === "add_requirement" ||
+    type === "extract_from_text";
 }
 
 function detectResearchIntent(message: string) {

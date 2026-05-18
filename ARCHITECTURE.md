@@ -4,7 +4,9 @@
 
 ## 1. 总体分层
 
-推荐源码结构：
+![alt text](image.png)
+
+源码结构：
 
 ```text
 src/

@@ -25,8 +25,8 @@ function formatSearchResults(results: SearchResult[]): string {
   return results
     .map((result, index) => {
       const date = result.date ? `\n  日期：${result.date}` : "";
-      return `${index + 1}. ${result.title}\n  URL：${result.link}\n  摘要：${result.snippet}${date}`;
+      const source = result.source ? `\n  来源：${result.source}` : "";
+      return `${index + 1}. ${result.title}\n  URL：${result.link}${source}\n  摘要：${result.snippet}${date}`;
     })
     .join("\n");
 }
-

@@ -33,7 +33,12 @@ export const intentRegistry: IntentRegistryItem[] = [
   item("research.compare_options", "Compare external options using web research.", ["web_search"], "deep_research", false, true),
   item("research.fact_check", "Fact-check a claim using web search.", ["web_search"], "deep_research", false, true),
   item("research.latest_info", "Find latest public information.", ["web_search"], "deep_research", false, true),
-  item("conversation.smalltalk", "Small talk and greetings.", [], "general_chat"),
+  item(
+    "conversation.chitchat",
+    "Handle all non-tool casual or reflective conversation outside task, file, memory, and deep research workflows, including interests, emotions, work, ideals, greetings, and everyday discussion.",
+    [],
+    "general_chat"
+  ),
   item("conversation.clarify", "Ask a clarification question.", [], "clarification"),
   item("conversation.general_qa", "General conversation or explanation.", [], "general_chat"),
   item("conversation.help", "Explain how to use the assistant.", [], "general_chat"),

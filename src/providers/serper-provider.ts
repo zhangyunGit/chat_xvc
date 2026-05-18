@@ -1,5 +1,5 @@
 import type { SearchProvider } from "./search-provider";
-import type { SearchResponse, SearchResult } from "../types/search";
+import type { SearchOptions, SearchResponse, SearchResult } from "../types/search";
 
 type SerperOrganicResult = {
   title?: unknown;
@@ -18,12 +18,13 @@ type SerperResponse = {
 export class SerperProvider implements SearchProvider {
   constructor(private readonly apiKey: string | undefined) {}
 
-  async search(query: string): Promise<SearchResponse> {
+  async search(query: string, options: SearchOptions = {}): Promise<SearchResponse> {
     if (!this.apiKey) {
       throw new Error("SERPER_API_KEY is not configured");
     }
 
-    const response = await fetch("https://google.serper.dev/search", {
+    const endpoint = options.kind === "news" ? "news" : "search";
+    const response = await fetch(`https://google.serper.dev/${endpoint}`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -31,7 +32,10 @@ export class SerperProvider implements SearchProvider {
       },
       body: JSON.stringify({
         q: query,
-        num: 8
+        num: clampResultCount(options.num),
+        ...(options.gl ? { gl: options.gl } : {}),
+        ...(options.hl ? { hl: options.hl } : {}),
+        ...(options.location ? { location: options.location } : {})
       })
     });
 
@@ -52,12 +56,19 @@ function normalizeResults(data: SerperResponse): SearchResult[] {
   const organic = Array.isArray(data.organic) ? data.organic : [];
   const news = Array.isArray(data.news) ? data.news : [];
 
-  return [...organic, ...news]
-    .map((item, index) => normalizeResult(item as SerperOrganicResult, index + 1))
+  return [
+    ...organic.map((item) => ({ item, kind: "organic" as const })),
+    ...news.map((item) => ({ item, kind: "news" as const }))
+  ]
+    .map(({ item, kind }, index) => normalizeResult(item as SerperOrganicResult, index + 1, kind))
     .filter((result): result is SearchResult => Boolean(result));
 }
 
-function normalizeResult(item: SerperOrganicResult, fallbackPosition: number): SearchResult | null {
+function normalizeResult(
+  item: SerperOrganicResult,
+  fallbackPosition: number,
+  kind: SearchResult["kind"]
+): SearchResult | null {
   if (typeof item.title !== "string" || typeof item.link !== "string") {
     return null;
   }
@@ -68,7 +79,12 @@ function normalizeResult(item: SerperOrganicResult, fallbackPosition: number): S
     snippet: typeof item.snippet === "string" ? item.snippet : "",
     date: typeof item.date === "string" ? item.date : undefined,
     source: typeof item.source === "string" ? item.source : undefined,
-    position: typeof item.position === "number" ? item.position : fallbackPosition
+    position: typeof item.position === "number" ? item.position : fallbackPosition,
+    kind
   };
 }
 
+function clampResultCount(value: number | undefined): number {
+  if (!Number.isFinite(value)) return 8;
+  return Math.max(1, Math.min(Math.floor(value as number), 20));
+}

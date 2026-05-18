@@ -51,11 +51,12 @@ const messages = createPromptMessages({
   user,
   decision,
   userMessage: "查一下最新信息",
-  searchResults: [{ title: "Result", link: "https://example.com", snippet: "Snippet" }]
+  searchResults: [{ title: "Result", link: "https://example.com", snippet: "Snippet", source: "Example" }]
 });
 
 if (!messages[0].content.includes("外部搜索与研究助手")) throw new Error("Expected research prompt");
 if (!messages[0].content.includes("Result")) throw new Error("Expected search result in prompt");
+if (!messages[0].content.includes("Example")) throw new Error("Expected search result source in prompt");
 if (!messages[0].content.includes("research.latest_info")) throw new Error("Expected intent in prompt");
 
 const taskMessages = createPromptMessages({
@@ -72,7 +73,7 @@ const taskMessages = createPromptMessages({
 });
 
 if (!taskMessages[0].content.includes("任务管理助手")) throw new Error("Expected task prompt");
-if (!taskMessages[1].content.includes("任务工具执行/参数检查结果")) throw new Error("Expected tool result block");
+if (!taskMessages[1].content.includes("工具执行/检索结果")) throw new Error("Expected tool result block");
 if (!taskMessages[1].content.includes("get_task_detail")) throw new Error("Expected tool result content");
 
 console.log("prompt service ok");

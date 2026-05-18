@@ -46,7 +46,11 @@ export class ConversationService {
     });
   }
 
-  async getRecentMessages(conversationId: string, limit = 10): Promise<ConversationMessage[]> {
+  async getRecentMessages(conversationId: string, limit = 20): Promise<ConversationMessage[]> {
     return this.conversationRepository.listRecentMessages(conversationId, limit);
+  }
+
+  async countCompletedTurns(conversationId: string): Promise<number> {
+    return this.conversationRepository.countAssistantMessages(conversationId);
   }
 }

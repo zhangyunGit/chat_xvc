@@ -1,8 +1,9 @@
-import type { ChatErrorChunk } from "../types/chat";
+import type { ChatErrorChunk, ChatStatusChunk } from "../types/chat";
 
 type SseWriter = {
   send(data: unknown): void;
   sendDelta(delta: string): void;
+  sendStatus(data: Omit<ChatStatusChunk, "type">): void;
   sendError(error: string): void;
   done(): void;
 };
@@ -56,6 +57,9 @@ function createWriter(controller: ReadableStreamDefaultController<Uint8Array>): 
     sendDelta(delta: string) {
       this.send({ delta });
     },
+    sendStatus(data: Omit<ChatStatusChunk, "type">) {
+      this.send({ type: "status", ...data });
+    },
     sendError(error: string) {
       const payload: ChatErrorChunk = { error };
       this.send(payload);
@@ -65,4 +69,3 @@ function createWriter(controller: ReadableStreamDefaultController<Uint8Array>): 
     }
   };
 }
-

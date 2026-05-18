@@ -11,9 +11,9 @@ const resourceNames = {
   d1: "chat_xvc_db",
   r2: "chat-xvc-files",
   kv: "chat_xvc_cache",
-  vectorize: "chat-xvc-documents",
+  vectorize: "chat-xvc-documents-m3",
   aiGateway: "deepseek_falsh",
-  vectorDimensions: 384,
+  vectorDimensions: 1024,
   vectorMetric: "cosine"
 };
 
@@ -178,11 +178,17 @@ function normalizeAiGateway(gateway) {
     providers: {
       deepseek: {
         model: "deepseek-v4-flash",
-        compat_model: "deepseek/deepseek-v4-flash"
+        compat_model: "deepseek/deepseek-v4-flash",
+        pro_model: "deepseek-v4-pro[1m]",
+        pro_compat_model: "deepseek/deepseek-v4-pro"
       },
       google_ai_studio: {
-        model: "gemini-3-flash-preview",
-        compat_model: "google-ai-studio/gemini-3-flash-preview"
+        model: "gemini-3.1-flash-lite",
+        compat_model: "google-ai-studio/gemini-3.1-flash-lite",
+        deep_thinking_model: "gemini-3-flash-preview",
+        deep_thinking_compat_model: "google-ai-studio/gemini-3-flash-preview",
+        pro_model: "gemini-3.1-pro-preview",
+        pro_compat_model: "google-ai-studio/gemini-3.1-pro-preview"
       }
     }
   };
