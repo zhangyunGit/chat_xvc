@@ -3,6 +3,7 @@
 # Chat XVC 实现说明
 
 本文档简要说明 Chat XVC 的核心实现方案，重点覆盖整体架构、子代理式研究规划、记忆召回、文件 RAG、多模态能力，以及开发过程中遇到的主要挑战和解决方案。
+
 github:
 https://github.com/zhangyunGit/chat_xvc/tree/main
 
