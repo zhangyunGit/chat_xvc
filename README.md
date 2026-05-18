@@ -10,6 +10,10 @@ https://github.com/zhangyunGit/chat_xvc/tree/main
 demo:
 https://chat-xvc.yun007x.workers.dev/
 
+# 额外说明
+1. 首次测试和对话，可能由于边缘服务冷启动较慢，后续应该就正常响应
+2. 可以直接在对话说，使用如“清理用户信息”，“重置用户”等自然语言命令进行用户信息重置，以便多次重复测试
+
 # 已支持功能列表
 - [x] 任务管理功能
 - [x] 文件功能
