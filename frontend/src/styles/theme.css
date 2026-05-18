@@ -17,6 +17,7 @@
   --xvc-shadow: 0 26px 90px rgba(5, 18, 32, 0.24);
   --xvc-shadow-soft: 0 16px 44px rgba(13, 32, 50, 0.12);
   --xvc-speed: 180ms;
+  --xvc-app-height: 100vh;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -28,10 +29,16 @@
   box-sizing: border-box;
 }
 
+html {
+  min-height: 100%;
+  min-height: var(--xvc-app-height);
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  min-height: var(--xvc-app-height);
   background:
     radial-gradient(circle at 10% -10%, rgba(255, 122, 26, 0.28), transparent 30rem),
     radial-gradient(circle at 82% 18%, rgba(25, 200, 167, 0.22), transparent 28rem),
@@ -59,6 +66,7 @@ input {
 #root {
   min-height: 100vh;
   min-height: 100dvh;
+  min-height: var(--xvc-app-height);
 }
 
 .xvc-shell {
@@ -69,6 +77,7 @@ input {
   min-width: 720px;
   height: 100vh;
   height: 100dvh;
+  height: var(--xvc-app-height);
   margin: 0 auto;
   padding: clamp(10px, 2.5dvh, 24px) 0;
   place-items: center;
@@ -154,6 +163,7 @@ input {
   width: 100%;
   height: calc(100vh - clamp(20px, 5dvh, 48px));
   height: calc(100dvh - clamp(20px, 5dvh, 48px));
+  height: calc(var(--xvc-app-height) - clamp(20px, 5dvh, 48px));
   min-height: 0;
   border-radius: var(--xvc-radius-lg);
 }
@@ -804,6 +814,7 @@ input {
   display: grid;
   width: min(390px, 100%);
   max-height: calc(100dvh - clamp(20px, 5dvh, 48px));
+  max-height: calc(var(--xvc-app-height) - clamp(20px, 5dvh, 48px));
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 12px;
   overflow: hidden;
@@ -1483,13 +1494,18 @@ input {
 @media (max-width: 760px) {
   .xvc-shell {
     width: 100%;
+    height: var(--xvc-app-height);
     padding: 0;
+    align-items: stretch;
+    justify-items: stretch;
+    place-items: stretch;
   }
 
   .chat-panel,
   .xvc-chat {
     height: 100vh;
-    min-height: 0;
+    height: var(--xvc-app-height);
+    min-height: var(--xvc-app-height);
     border-radius: 0;
   }
 
@@ -1509,6 +1525,7 @@ input {
   .memory-panel {
     width: 100%;
     max-height: calc(100dvh - 20px);
+    max-height: calc(var(--xvc-app-height) - 20px);
     border-radius: 24px;
   }
 
@@ -1536,6 +1553,75 @@ input {
     padding: 7px 10px;
     font-size: 12px;
   }
+}
+
+html.xvc-mobile-viewport,
+html.xvc-mobile-viewport body,
+html.xvc-mobile-viewport #root {
+  width: 100%;
+  height: 100vh;
+  height: -webkit-fill-available;
+  height: var(--xvc-app-height);
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  min-height: var(--xvc-app-height);
+}
+
+html.xvc-mobile-viewport .xvc-shell {
+  position: fixed;
+  inset: 0;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 100vh;
+  height: -webkit-fill-available;
+  height: var(--xvc-app-height);
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  min-height: var(--xvc-app-height);
+  padding: 0;
+}
+
+html.xvc-mobile-viewport .chat-panel {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  border-radius: 0;
+}
+
+html.xvc-mobile-viewport .xvc-chat {
+  height: 100%;
+  min-height: 100%;
+}
+
+html.xvc-wechat-desktop,
+html.xvc-wechat-desktop body,
+html.xvc-wechat-desktop #root,
+html.xvc-wechat-desktop .xvc-shell {
+  min-height: var(--xvc-app-height);
+}
+
+html.xvc-wechat-desktop .xvc-shell {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  width: 60vw;
+  min-width: 720px;
+  height: 100vh;
+  max-height: 100vh;
+  margin: 0 auto;
+  align-items: stretch;
+  justify-items: stretch;
+  place-items: stretch;
+}
+
+html.xvc-wechat-desktop .chat-panel {
+  height: auto;
+  max-height: 100vh;
+  min-height: 0;
+  align-self: stretch;
 }
 
 @media (prefers-reduced-motion: no-preference) {
